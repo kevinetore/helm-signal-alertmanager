@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "alertmanager-signal.fullname" . }}-config
+data:
+  config.yaml: |
+    server:
+      port: {{ .Values.webhook.port }}
+      interface: "0.0.0.0"
+    signal:
+      number: {{ .Values.webhook.config.number }}
+      recipients:
+{{- range .Values.webhook.config.recipients }}
+        - "{{ . }}"
+{{- end }}
+      send: {{ .Values.webhook.config.send }}

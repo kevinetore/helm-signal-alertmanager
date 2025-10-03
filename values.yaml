@@ -1,0 +1,15 @@
+signal:
+  image: etore/signal-cli-rest-api:arm-0.94
+  port: 8080
+  phoneNumber: ""
+  mode: native
+
+webhook:
+  image: etore/alertmanager-webhook-signal:arm-1.1.1
+  port: 10000
+  configPath: /config/config.yaml
+  config:
+    number: ""
+    recipients:
+      - ""
+    send: http://localhost:8080/v2/send

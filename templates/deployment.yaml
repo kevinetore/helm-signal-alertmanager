@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "alertmanager-signal.fullname" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "alertmanager-signal.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "alertmanager-signal.name" . }}
+    spec:
+      serviceAccountName: alertmanager-signal-sa
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      initContainers:
+        - name: signal-link
+          image: {{ .Values.signal.image }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              # Only link if not already done
+              if [ ! -f /home/.local/share/signal-cli/.linked ]; then
+                signal-cli link -n "signal-cli" | tee >(xargs -L 1 qrencode -t utf8)
+                touch /home/.local/share/signal-cli/.linked
+              fi
+          volumeMounts:
+            - name: signal-data
+              mountPath: /home/.local/share/signal-cli
+      containers:
+        - name: signal-cli
+          image: {{ .Values.signal.image }}
+          command: ["/bin/bash"]
+          args:
+            - "-c"
+            - "signal-cli-rest-api -signal-cli-config=$${SIGNAL_CLI_CONFIG_DIR}"
+          env:
+            - name: SIGNAL_CLI_CONFIG_DIR
+              value: "/home/.local/share/signal-cli"
+            - name: MODE
+              value: "{{ .Values.signal.mode }}"
+            - name: SIGNAL_CLI_CHOWN_ON_STARTUP
+              value: "false"
+            - name: LOG_LEVEL
+              value: "info"
+            - name: PORT
+              value: "8080"
+            - name: AUTO_RECEIVE_SCHEDULE
+              value: "0 22 * * *" # calls receive daily at 10pm
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: signal-data
+              mountPath: /home/.local/share/signal-cli
+          securityContext:
+            runAsNonRoot: true
+        - name: webhook
+          image: {{ .Values.webhook.image }}
+          ports:
+            - containerPort: {{ .Values.webhook.port }}
+          volumeMounts:
+            - name: webhook-config
+              mountPath: /config
+          env:
+            - name: CONFIG_PATH
+              value: {{ .Values.webhook.configPath }}
+      volumes:
+        - name: signal-data
+          emptyDir: {}
+        - name: webhook-config
+          configMap:
+            name: {{ include "alertmanager-signal.fullname" . }}-config

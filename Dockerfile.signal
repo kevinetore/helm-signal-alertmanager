@@ -1,0 +1,8 @@
+# Custom Signal CLI REST API with QR code support
+FROM bbernhard/signal-cli-rest-api:0.94
+
+USER root
+
+RUN apt-get update && apt-get install -y bash qrencode
+
+USER signal-api
